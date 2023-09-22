@@ -1,70 +1,95 @@
 
 pub mod governance{
-    use std::process::Command;
+    use std::{process::{Command, ExitStatus}, io::{Error, Read, Write}, fs::{self, File}};
 
+    use crate::wallet::Wallet;
+    use crate::utils;
+    use reqwest;
 
   pub enum Network{
     Mainnet, Preview, Preprod, Sancho
   }
-  pub struct Governance{
+
+  pub trait Governance{
+    fn create_action(&self, wallet:&Wallet, network:&String)->Result<ExitStatus, Error>;
+  }
+  pub struct Constitution{
 
       network_id: Network,
       governance_action_deposit: u64,
-      stake_verification_key_file: String,
       proposal_url: String,
       anchor_data_hash: String,
       constitution_url: String,
-      constitution: String,
+      constitution_file: String,
+      constitution:String,
       out_file: String,
-      action:String
   }
 
-  impl Governance{
-    pub fn new(network_id:Network, governance_action_deposit:u64, stake_verification_key_file:String, proposal_url:String, anchor_data_hash:String, constitution_url:String, constitution:String, out_file:String, action:String)->Self{
+  impl Constitution{
+    pub fn new(network_id:Network, governance_action_deposit:u64, proposal_url:String, anchor_data_hash:String, constitution_url:String, constitution_file:String, out_file:String, constitution:String)->Self{
       Self{
         network_id,
         governance_action_deposit,
-        stake_verification_key_file,
         proposal_url,
         anchor_data_hash,
         constitution_url,
+        constitution_file,
         constitution,
-        out_file,
-        action
+        out_file
       }
     }
-    pub fn create_action(&self)->bool{
-      let mut docker = Command::new("docker");
-      let network = match self.network_id{
-        Network::Preview => ["--testnet"],
-        Network::Preprod => ["--testnet"],
-        Network::Sancho => ["--testnet"],
-        Network::Mainnet => ["--mainnet"],
-      };
+    pub async fn create_constitution(& mut self)->Result<String, Box<dyn std::error::Error>>{
+      match fs::metadata(&self.constitution_file){
+        Ok(_) => {
+          let mut file = File::open("./gov-actions/constitution.txt").unwrap();
+          let mut buf = String::new();
+          let file = file.read_to_string(&mut buf);
+          match file{
+            Ok(_) => {
+              self.constitution = buf.clone();
+              Ok(buf)
+            },
+            Err(x) => Err(Box::new(x)),
+        }
+        }
+        Err(_) => {
+          let res = reqwest::get(String::from("https://raw.githubusercontent.com/input-output-hk/sanchonet/master/README.md")).await;
+          match res{
+            Ok(x)=> {
+              match x.text().await{
+                Ok(x)=> {
+                  let file  = File::create("./gov-actions/constitution.txt");
+                  match file{
+                    Ok(mut f)=> match f.write_all(x.as_bytes()) {
+                        Ok(_) => (),
+                        Err(_) => println!("Error writing to constitution file"),
+                    },
+                    Err(_)=> println!("Error writing to constitution file")
+                  };
+                  self.constitution = x.clone();
+                  Ok(x)
+                }
+                Err(e)=> Err(Box::new(e))
+              }
+            }
+            Err(x) => Err(Box::new(x))
+          }
+          
+        }
+    }
+    }
+  }
+  impl Governance for Constitution{
+    fn create_action(&self, wallet:&Wallet, network:&String)->Result<ExitStatus, Error>{
+      let mut cli = Command::new("cardano-cli");
 
-      let cardano_cli_command = docker
-          .args(&["exec", "cardano-node", "cardano-cli", "conway", "governance", "action", (self.action).as_str()])
-          .args(&network)
-          .args(&["--governance-action-deposit", self.governance_action_deposit.to_string().as_str(), "--proposal-url", self.proposal_url.as_str()])
-          .args(&["--stake-verification-key-file",self.stake_verification_key_file.as_str(), "--anchor-data-hash", self.anchor_data_hash.as_str()])
+      let cardano_cli_command = cli
+          .args(&["conway", "governance", "action", "create-constitution"])
+          .args(&["--testnet", "--governance-action-deposit", self.governance_action_deposit.to_string().as_str(), "--proposal-url", self.proposal_url.as_str()])
+          .args(&["--stake-verification-key-file",wallet.get_skey_file().get_public_path().as_str(), "--anchor-data-hash", self.anchor_data_hash.as_str()])
           .args(&["--constitution-url", self.constitution_url.as_str(), "--constitution" , self.constitution.as_str(), "--out-file", (self.out_file.as_str())]);
 
-      match cardano_cli_command.status() {
-        Ok(exit_status) => {
-            if exit_status.success() {
-                println!("Governance action successfully built!");
-                true
-
-            } else {
-                eprintln!("Governance action not successful.");
-                false
-            }
-        }
-        Err(err) => {
-            eprintln!("Error running cardano-cli: {:?}", err);
-            false
-        }
-      }
+      cardano_cli_command.status()
     }
   }
 }
