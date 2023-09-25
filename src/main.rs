@@ -22,6 +22,10 @@ fn main() {
     //setup necessary addresses, payment, stake and drep addresses
     let config = utils::load_env();
     let wallet = setup_wallet(&config);
+    fs::create_dir_all("./wallet").expect("Failed to create wallet directory");
+    fs::create_dir_all("./gov-actions").expect("Failed to create gov action directory");
+    fs::create_dir_all("./transactions").expect("Failed to create transactions directory");
+
     println!("{}",config.network);
 
     // //cardano-cli transaction building ()
