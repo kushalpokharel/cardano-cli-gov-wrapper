@@ -1,5 +1,5 @@
 use std::{process::Command, str::from_utf8};
-use crate::{governance::governance::Network, wallet::Wallet, utils::{query_utxo, load_env, load_file_contents}};
+use crate::{governance::governance::Network, wallet::Wallet, utils::{query_utxo, load_env, load_file_contents}, config::Config};
 
 pub struct Transaction{
   tx_id:String,
@@ -25,6 +25,9 @@ impl Transaction{
   }
   pub fn add_input(&mut self, input:String){
     self.tx_in.push(input);
+  }
+  pub fn add_input_list(&mut self, input_list:&Vec<String>){
+    self.tx_in.extend_from_slice(input_list)
   }
   pub fn add_output(&mut self, output:String){
     self.tx_out.push(output);
@@ -54,62 +57,39 @@ impl Transaction{
       Network::Sancho => ["--testnet-magic", "4"],
       Network::Mainnet => ["--mainnet", ""],
     };
-    let inputs:Vec<_> = self.tx_in.iter().flat_map(|input|{
-      ["--tx-in", input]
-    }).collect();
     let cardano_cli_command = cmd
         .args(&["transaction", "sign", "--tx-body-file", self.tx_raw_file.as_str()])
         .args(&network)
-        .args(&["--signing-key-file", wallet.get_pkey_file().get_private_path().as_str(), "--signing-key-file", wallet.get_drep_file().get_private_path().as_str()])
+        .args(&["--signing-key-file", wallet.get_pkey_file().get_private_path().as_str()])
         .arg("--out-file")
         .arg(self.tx_signed_file.clone()); // Replace with the path to your transaction file
 
     cardano_cli_command.status()
   }
 
-  pub fn submit_tx(&mut self)->Result<std::process::ExitStatus, std::io::Error>{
+  pub fn submit_tx(&mut self, config:&Config)->Result<std::process::ExitStatus, std::io::Error>{
     let mut cmd = Command::new("cardano-cli");
     let cardano_cli_command = cmd
-        .args(&["transaction", "submit", "--socket-path", "/home/kushal/.cardano/sancho/node.socket", "--testnet-magic", "4"])              // Replace with the actual name of the cardano-cli executable inside the container
+        .args(&["transaction", "submit", "--socket-path", config.socket_path.as_str(), "--testnet-magic", "4"]) 
         .arg("--tx-file")
         .arg(self.tx_signed_file.clone()); // Replace with the path to your transaction file
 
     cardano_cli_command.status()
   }
 
-  pub fn build_tx(&self, wallet:&Wallet, action_option:String, network:&String, action_file:String)->Option<()>{
+  pub fn build_tx(&self, wallet:&Wallet, action_option:String, config:&Config, action_file:String, address:String)->Result<std::process::ExitStatus, std::io::Error>{
     let mut cmd = Command::new("cardano-cli");
-    match load_file_contents(wallet.get_paddr_file()){
-        Some(address) => {
-          match query_utxo(&address, network){
-            Some(utxo) => {
-              println!("{}", utxo);
-              let inputs:Vec<_> = self.tx_in.iter().flat_map(|input|{
-                ["--tx-in", input]
-              }).collect();
-              let cardano_cli_command = cmd
-                  .args(&["transaction", "build", "--socket-path", "/home/kushal/.cardano/sancho/node.socket", "--conway-era"])
-                  .args(&["--testnet-magic",network.as_str()])
-                  .args(&["--tx-in", utxo.as_str()])
-                  .args(&["--change-address",address.as_str(), action_option.as_str(), action_file.as_str()])
-                  .args(&["--witness-override", "2", "--out-file"])
-                  .arg(self.tx_raw_file.clone()); // Replace with the path to your transaction file
-          
-              match cardano_cli_command.status(){
-                Ok(_)=>{
-                  Some(())
-                },
-                Err(_)=>{
-          
-                  None
-                }
-              }
-            },
-            None => None
-          }
-        },
-        None => None,
-    }
+    let inputs:Vec<_> = self.tx_in.iter().flat_map(|input|{
+      ["--tx-in", input]
+    }).collect();
+    let cardano_cli_command = cmd
+        .args(&["conway", "transaction", "build", "--socket-path", config.socket_path.as_str()])
+        .args(&["--testnet-magic",config.network.as_str()])
+        .args(&inputs)
+        .args(&["--change-address",address.as_str(), action_option.as_str(), action_file.as_str()])
+        .args(&["--out-file"])
+        .arg(self.tx_raw_file.clone()); // Replace with the path to your transaction file
+    cardano_cli_command.status()
   }
 }
 

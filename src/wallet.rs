@@ -19,6 +19,7 @@ impl Wallet{
         
         keypaircmd.status()
     }
+    
     pub fn get_skey_file(&self)->&StakeKeyFile{
         &self.skey_file
     }

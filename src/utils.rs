@@ -13,13 +13,21 @@ where
     }
 }
 
+// pub fn bind_results<T, E, U, F>(option: Result<T, E>, f: F) -> Result<T,E>
+// where
+//     F: FnOnce(T) -> Result<T,E>,
+// {
+//     match option {
+//         Ok(value) => f(value),
+//         Err(_) => Err(),
+//     }
+// }
+
 pub fn load_file_contents(path:&String)->Option<String>{
     let mut file = File::open(path).unwrap();
     let mut buf = String::new();
 
-    println!("{}", path);
     let file = file.read_to_string(&mut buf);
-    println!("{}", path);
 
     match file{
         Ok(_)=> Some(buf),
@@ -60,21 +68,28 @@ pub fn generic_result_check<T,E>(res:Result<T,E>, function:String){
 
 pub fn load_env()->Config{
     dotenv().ok();
-    let config = bind_result(env::var("NETWORK"), |network|{
-        Some(Config::new(network))
+    let config = env::var("NETWORK").and_then(|network|{
+        env::var("NODE_SOCKET_PATH").and_then(|socket_path|{
+            env::var("API_KEY").and_then(|api_key|{
+                match env::var("FAUCET_URL"){
+                    Ok(faucet_url) => Ok(Config::from(network, socket_path, faucet_url, api_key)),
+                    Err(_) => Ok(Config::new(network, socket_path, api_key)),
+                }
+            })
+        })
     });
     match config{
-        None=> {
+        Err(_)=> {
             println!("Config not set up properly");
             std::process::exit(0)
         },
-        Some(conf)=>{
+        Ok(conf)=>{
             return conf;
         }
     }
 }
 
-pub fn query_utxo(address:&String, network:&String)-> Option<String>{
+pub fn query_utxo(address:&String, network:&String)-> Result<Value, String>{
     let mut cmd = Command::new("cardano-cli");
     
     let cardano_cli_command = cmd
@@ -89,34 +104,71 @@ pub fn query_utxo(address:&String, network:&String)-> Option<String>{
             if output.status.success() {
                 // Extract the stdout as a String
                 let stdout_str = String::from_utf8_lossy(&output.stdout).to_string();
-                let utxo = extract_json(stdout_str);
-                utxo
+                let json_utxo = extract_json(stdout_str);
+                json_utxo
             } else {
-                eprintln!("Error executing command: {:?}", output.status);
-                None
+                Err(String::from("Constitution not successful"))
             }
         }
-        Err(_) => None,
+        Err(x) => Err(x.to_string()),
     }
 }
 
-fn extract_json(json_string:String)->Option<String>{
+fn extract_json(json_string:String)->Result<Value, String>{
     let parsed_json: serde_json::Result<Value> = serde_json::from_str(&json_string);
-    match parsed_json {
-        Ok(json) => {
-            // Extract the first key from the JSON object
-            if let Some((first_key, _)) = json.as_object()?.iter().next() {
-                return Some(first_key.to_string());
+    parsed_json.map_err(|err|{
+        err.to_string()
+    })
+
+}
+
+pub async fn set_interval<F, P>(interval: tokio::time::Duration, mut task: F, txid:P, address:P)
+where
+    F: FnMut(P, P) ->bool + Send + 'static,
+    P: PartialEq + Send + Clone+ 'static,
+{
+    loop {
+        // Perform the task
+        let res = task(txid.clone(), address.clone());
+        if res{
+            break;
+        }
+
+        // Sleep for the specified interval
+        tokio::time::sleep(interval).await;
+    }
+}
+
+pub fn check_for_utxo(txid:String, address:String)-> bool{
+    let json_value = query_utxo(&address, &String::from("4"));
+    match json_value{
+        Ok(value) => {
+            let check = recurse_json(&value, txid);
+            check
+        },
+        Err(err) => {
+            println!("Error while querying utxos");
+            std::process::exit(0);
+        },
+    }
+}
+
+pub fn recurse_json(json_value:&Value, txid:String)->bool{
+    match json_value.as_object(){
+        Some(obj) => {
+            if let Some((first_key, next)) = obj.iter().next(){
+                let result = recurse_json(next, txid.clone());
+                if (*first_key).contains(&txid){
+                    return true;
+                }
+                else{
+                    return result || false;
+                }
             }
             else{
-                return None;
+                return false;
             }
-        }
-        Err(err) => {
-            eprintln!("Error parsing JSON: {:?}", err);
-            None
-        }
+        },
+        None => return false,
     }
-
-
 }

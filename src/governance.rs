@@ -18,7 +18,7 @@ pub mod governance{
       network_id: Network,
       governance_action_deposit: u64,
       proposal_url: String,
-      anchor_data_hash: String,
+      proposal_hash: String,
       constitution_url: String,
       constitution_file: String,
       constitution:String,
@@ -26,12 +26,12 @@ pub mod governance{
   }
 
   impl Constitution{
-    pub fn new(network_id:Network, governance_action_deposit:u64, proposal_url:String, anchor_data_hash:String, constitution_url:String, constitution_file:String, out_file:String, constitution:String)->Self{
+    pub fn new(network_id:Network, governance_action_deposit:u64, proposal_url:String, proposal_hash:String, constitution_url:String, constitution_file:String, out_file:String, constitution:String)->Self{
       Self{
         network_id,
         governance_action_deposit,
         proposal_url,
-        anchor_data_hash,
+        proposal_hash,
         constitution_url,
         constitution_file,
         constitution,
@@ -86,8 +86,8 @@ pub mod governance{
       let cardano_cli_command = cli
           .args(&["conway", "governance", "action", "create-constitution"])
           .args(&["--testnet", "--governance-action-deposit", self.governance_action_deposit.to_string().as_str(), "--proposal-url", self.proposal_url.as_str()])
-          .args(&["--stake-verification-key-file",wallet.get_skey_file().get_public_path().as_str(), "--anchor-data-hash", self.anchor_data_hash.as_str()])
-          .args(&["--constitution-url", self.constitution_url.as_str(), "--constitution" , self.constitution.as_str(), "--out-file", (self.out_file.as_str())]);
+          .args(&["--stake-verification-key-file",wallet.get_skey_file().get_public_path().as_str(), "--proposal-hash", self.proposal_hash.as_str()])
+          .args(&["--constitution-url", self.constitution_url.as_str(), "--constitution-file" , self.constitution_file.as_str(), "--out-file", (self.out_file.as_str())]);
 
       cardano_cli_command.status()
     }
