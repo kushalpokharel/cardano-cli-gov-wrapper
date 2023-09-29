@@ -54,6 +54,25 @@ pub fn status_check(status:Result<std::process::ExitStatus, std::io::Error>, fun
     }
 }
 
+pub fn status_check_result(status:Result<std::process::ExitStatus, std::io::Error>, function:String){
+    match status{
+        Ok(exit_status) => {
+            if exit_status.success() {
+                println!("{0} successful!", function );
+                
+                
+            } else {
+                eprintln!("{0} unsuccessful", function);
+                std::process::exit(0)
+            }
+        }
+        Err(err) => {
+            eprintln!("Error running cardano-cli: {:?}", err);
+            std::process::exit(0);
+        }
+    }
+}
+
 pub fn generic_result_check<T,E>(res:Result<T,E>, function:String){
     match res{
         Ok(_) => {
@@ -147,27 +166,21 @@ pub fn check_for_utxo(txid:String, address:String)-> bool{
             check
         },
         Err(err) => {
-            println!("Error while querying utxos");
+            println!("Error while querying utxos,{}", err.to_string());
             std::process::exit(0);
         },
     }
 }
 
-pub fn recurse_json(json_value:&Value, txid:String)->bool{
+fn recurse_json(json_value:&Value, txid:String)->bool{
     match json_value.as_object(){
         Some(obj) => {
-            if let Some((first_key, next)) = obj.iter().next(){
-                let result = recurse_json(next, txid.clone());
-                if (*first_key).contains(&txid){
+            for key in obj.keys(){
+                if key.contains(&txid.trim_end()){
                     return true;
                 }
-                else{
-                    return result || false;
-                }
             }
-            else{
-                return false;
-            }
+            return false;
         },
         None => return false,
     }

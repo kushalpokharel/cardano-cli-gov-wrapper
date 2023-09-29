@@ -1,19 +1,20 @@
-use std::fs;
+use std::{fs};
 use crate::{config::Config, wallet::Wallet, utils::status_check, keypairs::{PaymentKeyFile, KeyPair, StakeKeyFile, DrepKeyFile }};
 
-pub fn setup_wallet(conf:&Config)->Wallet{
-    let pkf = setup_payment_key_pair(conf);
-    let skf = setup_stake_key_pair(conf);
-    let dkf = setup_drep_key_pair(conf);
-    let wallet = Wallet::new(pkf, skf, dkf, String::from("./wallet/address"));
+pub fn setup_wallet(prefix:String, conf:&Config)->Wallet{
+    let pkf = setup_payment_key_pair(prefix.clone(),conf);
+    let skf = setup_stake_key_pair(prefix.clone(), conf);
+    let dkf = setup_drep_key_pair(prefix.clone(), conf);
+    let wallet_address = String::from("./wallet/")+  &prefix +&String::from("address");
+    let wallet = Wallet::new(pkf, skf, dkf, wallet_address );
     let status = wallet.gen_addr(conf.network.clone());
-    status_check(status, String::from("Address generation"));
+    status_check(status, prefix+&String::from("Address generation"));
     return wallet;
 }
 
-fn setup_payment_key_pair(conf:&Config)->PaymentKeyFile{
-    let payment_pubkey = String::from("./wallet/payment.pub");
-    let payment_privatekey = String::from("./wallet/payment.priv");
+fn setup_payment_key_pair(prefix:String, conf:&Config)->PaymentKeyFile{
+    let payment_pubkey = String::from("./wallet/")+&prefix+&String::from("payment.pub");
+    let payment_privatekey = String::from("./wallet/")+&prefix+&String::from("payment.priv");
 
     let pkf = PaymentKeyFile::new(payment_pubkey.clone(), payment_privatekey.clone());
     
@@ -39,11 +40,12 @@ fn setup_payment_key_pair(conf:&Config)->PaymentKeyFile{
     
 }
 
-fn setup_stake_key_pair(conf:&Config)->StakeKeyFile{
-    let stake_pubkey = String::from("./wallet/stake.pub");
-    let stake_privkey = String::from("./wallet/stake.priv");
+fn setup_stake_key_pair(prefix:String, conf:&Config)->StakeKeyFile{
+    let stake_pubkey = String::from("./wallet/")+&prefix +&String::from("stake.pub");
+    let stake_privkey = String::from("./wallet/")+&prefix+ &String::from("stake.priv");
+    let stake_cert = String::from("./wallet/")+&prefix+ &String::from("stake.cert");
 
-    let skf = StakeKeyFile::new(stake_pubkey.clone(), stake_privkey.clone());
+    let skf = StakeKeyFile::new(stake_pubkey.clone(), stake_privkey.clone(), stake_cert.clone());
     
     match fs::metadata(stake_privkey){
         Ok(_) => {
@@ -65,11 +67,12 @@ fn setup_stake_key_pair(conf:&Config)->StakeKeyFile{
     skf
 }
 
-fn setup_drep_key_pair(conf:&Config)->DrepKeyFile{
+fn setup_drep_key_pair(prefix:String, conf:&Config)->DrepKeyFile{
     let drep_pubkey = String::from("./wallet/drep.pub");
     let drep_privkey = String::from("./wallet/drep.priv");
     let drep_certificate:String = String::from("./wallet/drep.cert");
-    let dkf = DrepKeyFile::new(drep_pubkey.clone(), drep_privkey.clone(), drep_certificate.clone());
+    let drep_id:String = String::from("./wallet/drep.id");
+    let dkf = DrepKeyFile::new(drep_pubkey.clone(), drep_privkey.clone(), drep_certificate.clone(), drep_id.clone());
     
     match fs::metadata(drep_privkey){
         Ok(_) => {
@@ -88,7 +91,9 @@ fn setup_drep_key_pair(conf:&Config)->DrepKeyFile{
             status_check(status, String::from("DRep key pair generation"));
         }
     }
-    let status = dkf.gen_cert();
+    let mut status = dkf.gen_cert();
     status_check(status, String::from("DRep certificate generation"));
+    status = dkf.gen_id();
+    status_check(status, String::from("DRep id generation"));
     dkf
 }

@@ -9,7 +9,7 @@ struct Utxo{
     txin:String
 }
 
-pub async fn maintain_balance(address:String, config:&Config, tx:&mut Transaction){
+pub async fn maintain_balance(address:String, config:&Config)-> Vec<String>{
     let utxosres = query_utxo(&address, &config.network);
     let utxos = match utxosres{
         Err(_) =>{
@@ -31,32 +31,34 @@ pub async fn maintain_balance(address:String, config:&Config, tx:&mut Transactio
                         let json_response = response.text().await.unwrap();
                         //parse the json_response
                         let result: Result<Utxo, serde_json::Error> = serde_json::from_str(&json_response);
+                        // println!("Ada fetch request successful with status {} and response {}", status, json_response);
                         match result{
                             Ok(utxo) => {
                                 println!("{}",utxo.txid);
                                 utils::set_interval(tokio::time::Duration::from_secs(2) ,utils::check_for_utxo, utxo.txid.clone(), address ).await;
-                                tx.add_input(utxo.txid.clone()+"#0");
+                                vec![utxo.txid.clone()+"#0"]
                             },
-                            Err(_) => {
-                                println!("Failed to decode utxo from the response json");
+                            Err(err) => {
+                                println!("Failed to decode utxo from the response json {}", err.to_string());
+                                std::process::exit(0);
                             },
                         }
-
-                        println!("Ada fetch request successful with status {} and response {}", status, json_response);
                     }
                     else{
                         println!("Ada fetch request with status {} and response {}", response.status().to_string(), response.text().await.unwrap());
+                        std::process::exit(0);
                     }
                     
                 },
                 Err(e) => {
                     println!("Failed Ada Fetch {}",e);
+                    std::process::exit(0);
                 },
             }
         }
         Some(utxos)=>{
             println!("Sufficient balance in the wallet {:?}", utxos );
-            tx.add_input_list(utxos);
+            available_utxos
         }
     }
 }
@@ -89,7 +91,6 @@ fn get_utxos<'a>(json:&serde_json::Value, balance:i64, utxo_list:&'a mut Vec<Str
 
 async fn fetch_balance(config:&Config, address:String)->Result<reqwest::Response, String>{
     let url = config.faucet_url.clone()+&std::fmt::format(format_args!("?action=funds&address={}&api_key={}",address, config.api_key));
-    println!("{}",url);
     reqwest::get(url)
     .await
     .map_err(|err|{
