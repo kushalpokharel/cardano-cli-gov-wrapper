@@ -58,9 +58,9 @@ impl Transaction{
       ["--tx-in", input]
     }).collect();
     let cardano_cli_command = cmd
-        .args(&["transaction", "sign", "--tx-body-file", "tx.raw"])
+        .args(&["transaction", "sign", "--tx-body-file", self.tx_raw_file.as_str()])
         .args(&network)
-        .args(&["--signing-key-file", "payment.skey", "--signing-key-file", "drep.skey"])
+        .args(&["--signing-key-file", wallet.get_pkey_file().get_private_path().as_str(), "--signing-key-file", wallet.get_drep_file().get_private_path().as_str()])
         .arg("--out-file")
         .arg(self.tx_signed_file.clone()); // Replace with the path to your transaction file
 
@@ -70,8 +70,7 @@ impl Transaction{
   pub fn submit_tx(&mut self)->Result<std::process::ExitStatus, std::io::Error>{
     let mut cmd = Command::new("cardano-cli");
     let cardano_cli_command = cmd
-        .args(&["exec", "cardano-node"]) // Replace with your Cardano node container name or ID
-        .args(&["cardano-cli", "transaction", "submit", "--socket-path", "node.socket", "--testnet-magic", "4"])              // Replace with the actual name of the cardano-cli executable inside the container
+        .args(&["transaction", "submit", "--socket-path", "/home/kushal/.cardano/sancho/node.socket", "--testnet-magic", "4"])              // Replace with the actual name of the cardano-cli executable inside the container
         .arg("--tx-file")
         .arg(self.tx_signed_file.clone()); // Replace with the path to your transaction file
 
@@ -80,17 +79,17 @@ impl Transaction{
 
   pub fn build_tx(&self, wallet:&Wallet, action_option:String, network:&String, action_file:String)->Option<()>{
     let mut cmd = Command::new("cardano-cli");
-    match load_file_contents(wallet.get_pwallet_file()){
+    match load_file_contents(wallet.get_paddr_file()){
         Some(address) => {
-          println!("{}", address);
           match query_utxo(&address, network){
             Some(utxo) => {
+              println!("{}", utxo);
               let inputs:Vec<_> = self.tx_in.iter().flat_map(|input|{
                 ["--tx-in", input]
               }).collect();
               let cardano_cli_command = cmd
-                  .args(&["transaction", "build", "--socket-path", "node.socket", "--conway-era"])
-                  .args(&["testnet-magic",network.as_str()])
+                  .args(&["transaction", "build", "--socket-path", "/home/kushal/.cardano/sancho/node.socket", "--conway-era"])
+                  .args(&["--testnet-magic",network.as_str()])
                   .args(&["--tx-in", utxo.as_str()])
                   .args(&["--change-address",address.as_str(), action_option.as_str(), action_file.as_str()])
                   .args(&["--witness-override", "2", "--out-file"])
@@ -111,7 +110,6 @@ impl Transaction{
         },
         None => None,
     }
-    
   }
 }
 

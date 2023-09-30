@@ -34,11 +34,11 @@ fn main() {
     utils::generic_result_check(res, String::from("Constitution file creation"));
     let status = govaction.create_action(&wallet, &config.network);
     status_check(status, String::from("Governance action generation"));
-    // tx.build_tx(&wallet,String::from("--constitution-file"), &config.network, String::from("./gov-actions/constitution.action"));
-    // tx.get_tx_id();
-    // tx.sign_tx(&wallet);
+    tx.build_tx(&wallet,String::from("--constitution-file"), &config.network, String::from("./gov-actions/constitution.action"));
+    tx.get_tx_id();
+    tx.sign_tx(&wallet);
     // // //submit the transaction
-    // tx.submit_tx();
+    tx.submit_tx();
 }
 
 

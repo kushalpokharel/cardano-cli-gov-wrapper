@@ -1,6 +1,7 @@
 use dotenv::dotenv;
-use std::{env, fs::File, io::Read, process::Command};
+use std::{env, fs::File, io::{Read, self, Write, Error}, process::{Command, Stdio}};
 use crate::config::Config;
+use serde_json::Value; 
 
 pub fn bind_result<T, E, U, F>(option: Result<T, E>, f: F) -> Option<U>
 where
@@ -78,10 +79,44 @@ pub fn query_utxo(address:&String, network:&String)-> Option<String>{
     
     let cardano_cli_command = cmd
         .args(&["query", "utxo", "--address", address.as_str(), "--testnet-magic", network.as_str()])
-        .args(&["--out-file", "/dev/stdout", "|", "jq", "-r", "'keys[0]"]);
+        .args(&["--out-file", "/dev/stdout",  "--socket-path", "/home/kushal/.cardano/sancho/node.socket"])
+        .stdout(Stdio::piped())
+        .spawn();
+    match cardano_cli_command{
+        Ok(mut child) => {
+            let output = child.wait_with_output().expect("Failed to wait for command");
 
-    match cardano_cli_command.output(){
-        Ok(x) => Some(String::from_utf8_lossy(&x.stdout).to_string()),
+            if output.status.success() {
+                // Extract the stdout as a String
+                let stdout_str = String::from_utf8_lossy(&output.stdout).to_string();
+                let utxo = extract_json(stdout_str);
+                utxo
+            } else {
+                eprintln!("Error executing command: {:?}", output.status);
+                None
+            }
+        }
         Err(_) => None,
     }
+}
+
+fn extract_json(json_string:String)->Option<String>{
+    let parsed_json: serde_json::Result<Value> = serde_json::from_str(&json_string);
+    match parsed_json {
+        Ok(json) => {
+            // Extract the first key from the JSON object
+            if let Some((first_key, _)) = json.as_object()?.iter().next() {
+                return Some(first_key.to_string());
+            }
+            else{
+                return None;
+            }
+        }
+        Err(err) => {
+            eprintln!("Error parsing JSON: {:?}", err);
+            None
+        }
+    }
+
+
 }

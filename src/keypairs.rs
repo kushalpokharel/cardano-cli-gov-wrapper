@@ -28,6 +28,9 @@ impl PaymentKeyFile{
     pub fn get_public_path(&self)->String{
         self.public.clone()
     }
+    pub fn get_private_path(&self)->String{
+        self.private.clone()
+    }
 }
 
 impl StakeKeyFile{
@@ -36,6 +39,9 @@ impl StakeKeyFile{
     }
     pub fn get_public_path(&self)->String{
         self.public.clone()
+    }
+    pub fn get_private_path(&self)->String{
+        self.private.clone()
     }
 }
 
@@ -53,6 +59,9 @@ impl DrepKeyFile{
     }
     pub fn get_public_path(&self)->String{
         self.public.clone()
+    }
+    pub fn get_private_path(&self)->String{
+        self.private.clone()
     }
 }
 
