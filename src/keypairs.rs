@@ -147,7 +147,7 @@ impl KeyPair for StakeKeyFile{
         
         keypaircmd.status()
     }
-    fn gen_addr(&self, network:String)-> Result<std::process::ExitStatus, std::io::Error> {
+    fn gen_addr(&self, _network:String)-> Result<std::process::ExitStatus, std::io::Error> {
         let mut cli = Command::new("cardano-cli");
         let keypaircmd = cli.args(&["stake-addresss", "build", "--stake-verification-key-file", self.private.as_str()])
                     .args(&["--signing-key-file", self.private.as_str()]);
@@ -174,7 +174,7 @@ impl KeyPair for DrepKeyFile{
         
         keypaircmd.status()
     }
-    fn gen_addr(&self, network:String)-> Result<std::process::ExitStatus, std::io::Error> {
+    fn gen_addr(&self, _network:String)-> Result<std::process::ExitStatus, std::io::Error> {
         let mut cli = Command::new("cardano-cli");
         let keypaircmd = cli.args(&["conway", "governance", "id", "--drep-verification-key-file", self.public.as_str()])
                     .args(&["--drep-signing-key-file", self.private.as_str()]);

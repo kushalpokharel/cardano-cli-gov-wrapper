@@ -1,5 +1,5 @@
 use dotenv::dotenv;
-use std::{env, fs::File, io::{Read, self, Write, Error}, process::{Command, Stdio}};
+use std::{env, fs::File, io::{Read}, process::{Command, Stdio}};
 use crate::config::Config;
 use serde_json::Value; 
 
@@ -78,7 +78,7 @@ pub fn generic_result_check<T,E>(res:Result<T,E>, function:String){
         Ok(_) => {
            println!("{} successful", function);
         }
-        Err(err) => {
+        Err(_err) => {
             eprintln!("{} not successful", function);
             std::process::exit(0);
         }
@@ -117,7 +117,7 @@ pub fn query_utxo(address:&String, network:&String)-> Result<Value, String>{
         .stdout(Stdio::piped())
         .spawn();
     match cardano_cli_command{
-        Ok(mut child) => {
+        Ok(child) => {
             let output = child.wait_with_output().expect("Failed to wait for command");
 
             if output.status.success() {

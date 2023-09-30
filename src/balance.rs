@@ -1,5 +1,7 @@
-use crate::transaction::Transaction;
-use crate::utils::{status_check, query_utxo, self};
+
+use reqwest::Response;
+
+use crate::utils::{query_utxo, self};
 use crate::config::{Config};
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -24,42 +26,50 @@ pub async fn maintain_balance(address:String, config:&Config)-> Vec<String>{
         None =>{
             //need to load balance from faucet
             let resp = fetch_balance(&config, address.clone()).await;
-            match resp{
-                Ok(response) => {
-                    if response.status().is_success(){
-                        let status = response.status().to_string();
-                        let json_response = response.text().await.unwrap();
-                        //parse the json_response
-                        let result: Result<Utxo, serde_json::Error> = serde_json::from_str(&json_response);
-                        // println!("Ada fetch request successful with status {} and response {}", status, json_response);
-                        match result{
-                            Ok(utxo) => {
-                                println!("{}",utxo.txid);
-                                utils::set_interval(tokio::time::Duration::from_secs(2) ,utils::check_for_utxo, utxo.txid.clone(), address ).await;
-                                vec![utxo.txid.clone()+"#0"]
-                            },
-                            Err(err) => {
-                                println!("Failed to decode utxo from the response json {}", err.to_string());
-                                std::process::exit(0);
-                            },
-                        }
-                    }
-                    else{
-                        println!("Ada fetch request with status {} and response {}", response.status().to_string(), response.text().await.unwrap());
-                        std::process::exit(0);
-                    }
-                    
-                },
-                Err(e) => {
-                    println!("Failed Ada Fetch {}",e);
-                    std::process::exit(0);
-                },
-            }
+            check_fetch_result(resp, address).await
         }
         Some(utxos)=>{
             println!("Sufficient balance in the wallet {:?}", utxos );
             available_utxos
         }
+    }
+}
+
+async fn check_fetch_result(resp:Result<Response, String>, address:String)->Vec<String>{
+    match resp{
+        Ok(response) => {
+            if response.status().is_success(){
+                let _status = response.status().to_string();
+                let json_response = response.text().await.unwrap();
+                //parse the json_response
+                let result: Result<Utxo, serde_json::Error> = serde_json::from_str(&json_response);
+                // println!("Ada fetch request successful with status {} and response {}", status, json_response);
+                get_recent_utxo(result, address).await
+            }
+            else{
+                println!("Ada fetch request with status {} and response {}", response.status().to_string(), response.text().await.unwrap());
+                std::process::exit(0);
+            }
+            
+        },
+        Err(e) => {
+            println!("Failed Ada Fetch {}",e);
+            std::process::exit(0);
+        },
+    }
+}
+
+async fn get_recent_utxo(result:Result<Utxo, serde_json::Error>, address:String)->Vec<String>{
+    match result{
+        Ok(utxo) => {
+            println!("{}",utxo.txid);
+            utils::set_interval(tokio::time::Duration::from_secs(2) ,utils::check_for_utxo, utxo.txid.clone(), address ).await;
+            vec![utxo.txid.clone()+"#0"]
+        },
+        Err(err) => {
+            println!("Failed to decode utxo from the response json {}", err.to_string());
+            std::process::exit(0);
+        },
     }
 }
 

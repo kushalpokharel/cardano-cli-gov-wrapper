@@ -1,6 +1,6 @@
 use std::{process::{ExitStatus, Command}, io::Error};
 
-use crate::{KeyPair, keypairs::{PaymentKeyFile, StakeKeyFile, DrepKeyFile}};
+use crate::{keypairs::{PaymentKeyFile, StakeKeyFile, DrepKeyFile}};
 pub struct Wallet{
     pkey_file:PaymentKeyFile,
     skey_file:StakeKeyFile,

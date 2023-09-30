@@ -1,5 +1,5 @@
-use std::{process::Command, str::from_utf8};
-use crate::{governance::governance::Network, wallet::Wallet, utils::{query_utxo, load_env, load_file_contents}, config::Config};
+use std::{process::Command};
+use crate::{governance::governance::Network, wallet::Wallet, config::Config};
 
 pub struct Transaction{
   tx_id:String,
@@ -105,7 +105,7 @@ impl Transaction{
     cardano_cli_command.status()
   }
 
-  pub fn build_tx(&self, wallet:&Wallet, action_option:String, config:&Config, action_file:String, address:String)->Result<std::process::ExitStatus, std::io::Error>{
+  pub fn build_tx(&self, _wallet:&Wallet, action_option:String, config:&Config, action_file:String, address:String)->Result<std::process::ExitStatus, std::io::Error>{
     let mut cmd = Command::new("cardano-cli");
     let inputs:Vec<_> = self.tx_in.iter().flat_map(|input|{
       ["--tx-in", input]

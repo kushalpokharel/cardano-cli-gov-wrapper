@@ -3,7 +3,7 @@ pub mod governance{
     use std::{process::{Command, ExitStatus}, io::{Error, Read, Write}, fs::{self, File}};
 
     use crate::wallet::Wallet;
-    use crate::utils;
+    
     use reqwest;
 
   pub enum Network{
@@ -41,7 +41,7 @@ pub mod governance{
     pub async fn create_constitution(& mut self)->Result<String, Box<dyn std::error::Error>>{
       match fs::metadata(&self.constitution_file){
         Ok(_) => {
-          let mut file = File::open("./gov-actions/constitution.txt").unwrap();
+          let mut file = File::open("./files/gov-actions/constitution.txt").unwrap();
           let mut buf = String::new();
           let file = file.read_to_string(&mut buf);
           match file{
@@ -58,7 +58,7 @@ pub mod governance{
             Ok(x)=> {
               match x.text().await{
                 Ok(x)=> {
-                  let file  = File::create("./gov-actions/constitution.txt");
+                  let file  = File::create("./files/gov-actions/constitution.txt");
                   match file{
                     Ok(mut f)=> match f.write_all(x.as_bytes()) {
                         Ok(_) => (),
@@ -80,7 +80,7 @@ pub mod governance{
     }
   }
   impl Governance for Constitution{
-    fn create_action(&self, wallet:&Wallet, network:&String)->Result<ExitStatus, Error>{
+    fn create_action(&self, wallet:&Wallet, _network:&String)->Result<ExitStatus, Error>{
       let mut cli = Command::new("cardano-cli");
 
       let cardano_cli_command = cli
