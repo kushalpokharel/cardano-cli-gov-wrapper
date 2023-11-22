@@ -1,0 +1,16 @@
+[package]
+name = "governance-action-loader"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dotenv = "0.15.0"
+reqwest = "0.11.20"
+tokio = {version="1.32.0", features=["full"]}
+openssl = { version = "0.10", features = ["vendored"] }
+serde_json = "1.0.107"
+serde = {version = "1.0.188", features = ["derive"]}
+rand = "0.8.5"
+futures = "0.3.28"
